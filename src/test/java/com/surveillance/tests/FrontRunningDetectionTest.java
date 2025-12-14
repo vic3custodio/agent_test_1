@@ -2,10 +2,13 @@ package com.surveillance.tests;
 
 import org.junit.Test;
 import org.junit.Before;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 import java.util.Date;
 import java.text.SimpleDateFormat;
+
+import com.surveillance.core.Parameter;
+import com.surveillance.core.DetectionResult;
+import com.surveillance.core.ReportGenerator;
+import com.surveillance.detectors.FrontRunningDetector;
 
 /**
  * Front Running Detection Test
@@ -16,7 +19,6 @@ import java.text.SimpleDateFormat;
  * @Meta(report_type = "front_running")
  * @Meta(config_file = "front_running_detection.yml")
  */
-@RunWith(Parameterized.class)
 public class FrontRunningDetectionTest {
 
     // Test parameters - can be modified by the agent

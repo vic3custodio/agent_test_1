@@ -2,10 +2,13 @@ package com.surveillance.tests;
 
 import org.junit.Test;
 import org.junit.Before;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 import java.util.Date;
 import java.text.SimpleDateFormat;
+
+import com.surveillance.core.Parameter;
+import com.surveillance.core.DetectionResult;
+import com.surveillance.core.ReportGenerator;
+import com.surveillance.detectors.WashTradeDetector;
 
 /**
  * Wash Trade Detection Test
@@ -16,33 +19,32 @@ import java.text.SimpleDateFormat;
  * @Meta(report_type = "wash_trade")
  * @Meta(config_file = "wash_trade_detection.yml")
  */
-@RunWith(Parameterized.class)
 public class WashTradeDetectionTest {
 
-    // Test parameters - can be modified by the agent
+    // Test parameters - can be modified by the agent or via system properties
     @Parameter("startDate")
-    private String startDate = "2024-01-01";
+    private String startDate = System.getProperty("startDate", "2024-01-01");
     
     @Parameter("endDate")
-    private String endDate = "2024-12-31";
+    private String endDate = System.getProperty("endDate", "2024-12-31");
     
     @Parameter("accountId")
-    private String accountId = null;
+    private String accountId = System.getProperty("accountId", null);
     
     @Parameter("symbol")
-    private String symbol = null;
+    private String symbol = System.getProperty("symbol", null);
     
     @Parameter("minTradeCount")
-    private int minTradeCount = 5;
+    private int minTradeCount = Integer.parseInt(System.getProperty("minTradeCount", "5"));
     
     @Parameter("priceTolerance")
-    private double priceTolerance = 0.01;
+    private double priceTolerance = Double.parseDouble(System.getProperty("priceTolerance", "0.01"));
     
     @Parameter("timeWindowSeconds")
-    private int timeWindowSeconds = 300;
+    private int timeWindowSeconds = Integer.parseInt(System.getProperty("timeWindowSeconds", "300"));
     
     @Parameter("outputFormat")
-    private String outputFormat = "csv";
+    private String outputFormat = System.getProperty("outputFormat", "csv");
 
     private WashTradeDetector detector;
     private ReportGenerator reportGenerator;
