@@ -1,0 +1,12 @@
+{
+    "servers": {
+        "trade-surveillance-agent": {
+            "type": "stdio",
+            "command": "${workspaceFolder}/.venv/bin/python",
+            "args": ["-m", "src.mcp_server"],
+            "env": {
+                "TRADE_SURVEILLANCE_PROJECT_DIR": "${workspaceFolder}"
+            }
+        }
+    }
+}
