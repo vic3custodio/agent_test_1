@@ -1,0 +1,91 @@
+# @name: spoofing_detection
+# @report_type: spoofing
+# @domain: trade_surveillance
+# @capability: detect_spoofing
+# @tags: spoofing, manipulation, layering
+# @description: Configuration for detecting spoofing and layering patterns
+
+spoofing_detection:
+  metadata:
+    name: spoofing_detection
+    report_type: spoofing
+    domain: trade_surveillance
+    version: "1.0"
+    
+  parameters:
+    lookback_days: 7
+    order_cancel_threshold: 0.80
+    time_window_seconds: 10
+    min_order_size_multiplier: 5
+    
+  thresholds:
+    min_orders: 10
+    cancel_rate: 0.75
+    max_order_lifetime_ms: 500
+    
+  sql: |
+    WITH order_activity AS (
+      SELECT 
+        account_id,
+        symbol,
+        order_id,
+        order_time,
+        cancel_time,
+        side,
+        quantity,
+        price,
+        status,
+        TIMESTAMPDIFF(MILLISECOND, order_time, COALESCE(cancel_time, order_time)) as order_lifetime_ms
+      FROM orders
+      WHERE order_time >= :start_date
+        AND order_time <= :end_date
+        AND (:symbol IS NULL OR symbol = :symbol)
+        AND (:account_id IS NULL OR account_id = :account_id)
+    ),
+    account_stats AS (
+      SELECT 
+        account_id,
+        symbol,
+        COUNT(*) as total_orders,
+        SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END) as cancelled_orders,
+        AVG(order_lifetime_ms) as avg_order_lifetime_ms,
+        AVG(quantity) as avg_quantity
+      FROM order_activity
+      GROUP BY account_id, symbol
+    )
+    SELECT 
+      oa.account_id,
+      oa.symbol,
+      oa.order_id,
+      oa.order_time,
+      oa.cancel_time,
+      oa.side,
+      oa.quantity,
+      oa.price,
+      oa.order_lifetime_ms,
+      ast.total_orders,
+      ast.cancelled_orders,
+      CAST(ast.cancelled_orders AS FLOAT) / ast.total_orders as cancel_rate,
+      oa.quantity / ast.avg_quantity as size_multiplier
+    FROM order_activity oa
+    JOIN account_stats ast ON oa.account_id = ast.account_id AND oa.symbol = ast.symbol
+    WHERE oa.status = 'CANCELLED'
+      AND oa.order_lifetime_ms <= :max_order_lifetime_ms
+      AND oa.quantity / ast.avg_quantity >= :min_order_size_multiplier
+      AND CAST(ast.cancelled_orders AS FLOAT) / ast.total_orders >= :cancel_rate_threshold
+    ORDER BY oa.order_time DESC
+
+  output:
+    format: csv
+    columns:
+      - account_id
+      - symbol
+      - order_id
+      - order_time
+      - cancel_time
+      - side
+      - quantity
+      - price
+      - order_lifetime_ms
+      - cancel_rate
+      - size_multiplier

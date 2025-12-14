@@ -1,0 +1,91 @@
+# @name: front_running_detection
+# @report_type: front_running
+# @domain: trade_surveillance
+# @capability: detect_front_running
+# @tags: front_running, insider, compliance
+# @description: Configuration for detecting potential front running patterns
+
+front_running_detection:
+  metadata:
+    name: front_running_detection
+    report_type: front_running
+    domain: trade_surveillance
+    version: "1.0"
+    
+  parameters:
+    lookback_days: 30
+    time_window_before_seconds: 300
+    min_price_move_pct: 0.02
+    
+  thresholds:
+    min_occurrences: 3
+    min_profit: 1000
+    correlation_threshold: 0.75
+    
+  sql: |
+    WITH employee_trades AS (
+      SELECT 
+        t.trade_id,
+        t.account_id,
+        t.symbol,
+        t.trade_time,
+        t.side,
+        t.quantity,
+        t.price,
+        e.employee_id,
+        e.department
+      FROM trades t
+      JOIN employee_accounts ea ON t.account_id = ea.account_id
+      JOIN employees e ON ea.employee_id = e.employee_id
+      WHERE t.trade_time >= :start_date
+        AND t.trade_time <= :end_date
+    ),
+    large_orders AS (
+      SELECT 
+        o.order_id,
+        o.symbol,
+        o.order_time,
+        o.side,
+        o.quantity,
+        o.price,
+        o.client_id
+      FROM orders o
+      WHERE o.quantity >= :min_large_order_qty
+        AND o.order_time >= :start_date
+        AND o.order_time <= :end_date
+    )
+    SELECT 
+      et.employee_id,
+      et.department,
+      et.trade_id,
+      et.account_id,
+      et.symbol,
+      et.trade_time as employee_trade_time,
+      et.side as employee_side,
+      et.quantity as employee_quantity,
+      et.price as employee_price,
+      lo.order_id as large_order_id,
+      lo.order_time as large_order_time,
+      lo.side as large_order_side,
+      lo.quantity as large_order_quantity,
+      TIMESTAMPDIFF(SECOND, et.trade_time, lo.order_time) as time_before_large_order
+    FROM employee_trades et
+    JOIN large_orders lo ON et.symbol = lo.symbol
+      AND et.side = lo.side
+      AND et.trade_time < lo.order_time
+      AND TIMESTAMPDIFF(SECOND, et.trade_time, lo.order_time) <= :time_window_before_seconds
+    ORDER BY et.trade_time DESC
+
+  output:
+    format: csv
+    columns:
+      - employee_id
+      - department
+      - trade_id
+      - symbol
+      - employee_trade_time
+      - employee_side
+      - employee_quantity
+      - large_order_time
+      - large_order_quantity
+      - time_before_large_order
